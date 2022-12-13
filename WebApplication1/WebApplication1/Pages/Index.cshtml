@@ -1,0 +1,171 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/4.5.3/js/bootstrap.js"></script>
+
+    <style>
+        .form-control {
+            width: 200px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="mb-3">
+            <input type="button" class="btn btn-sm btn-primary" value="添加商品" id="add-item">
+            <input type="button" class="btn btn-sm btn-primary" value="计算" id="reflash">
+        </div>
+        <div id="content">
+        </div>
+        <div id="table-list"></div>
+    </div>
+</body>
+<script>
+
+       /*  1瓶进口香水 27.99
+           1瓶香水 18.99
+           一包头痛药 9.75
+           1盒进口巧克力 11.25 */
+       // 商品模板
+       var itemHtml = `<div class="list mb-2">
+                               <div class="d-flex align-items-center item-list">
+                                   请选择类型：<select name="type">
+                                       <option value='其他'>其他</option>
+                                       <option value='书籍'>书籍</option>
+                                       <option value='食品'>食品</option>
+                                       <option value='医疗'>医疗</option>
+                                   </select>
+                                   <input type="text" class="form-control" name="count" placeholder="数量">
+                                   <input type="text" class="form-control" name="name" placeholder="规格名称">
+                                   <input type="text" class="form-control" name="itemname" placeholder="商品名称">
+                                   <input type="text" class="form-control" name="price" placeholder="价格">
+                                   <input type="button" class="btn btn-sm btn-dark ml-1 mr-1" value="删除" id="del">
+                               </div>
+                           </div>`;
+
+       // 添加
+       $(document).on('click', '#add-item', function () {
+          $('#content').append(itemHtml);
+       })
+
+       // 删除
+       $(document).on('click', '#del', function () {
+           $(this).parents('.item-list').remove();
+       })
+
+       // // 刷新表格
+       $(document).on('click', '#reflash', function () {
+           if ($('#content').children().length == 0) {
+               return;
+           }
+            var html= '';
+           // 规格名称输入框组
+           var itemList = $('.item-list');
+           var tax = [];
+           var total = [];
+           // 将表单内的用户输入加入数组中
+           for (var i = 0; i < itemList.length; i++) {
+                var reg1 = /^[0-9]+.?[0-9]*$/;
+                var reg2 = /^[0-9]([0-9\.]+\d)?$/;
+              if (!reg1.test($(itemList[i]).find('input[name="count"]').val())) 
+              {
+                  alert("请输入正确的数量，应为正整数");
+                  return;
+              }
+              if (!reg2.test($(itemList[i]).find('input[name="price"]').val()) ){
+                  alert("请输入正确的价格，带小数点");
+                  return;
+                }
+                if($(itemList[i]).find('input[name="name"]').val()==""){
+                  alert("请输入规格名称");
+                  return;
+                }
+                if($(itemList[i]).find('input[name="itemname"]').val()==""){
+                  alert("请输入商品名称");
+                  return;
+                }
+               var price1 = Calculate2($(itemList[i]).find('select[name="type"]').val(),keepTwoDecimalFull($(itemList[i]).find('input[name="price"]').val()),$(itemList[i]).find('input[name="itemname"]').val());
+               html +=  $(itemList[i]).find('input[name="count"]').val();
+               html +=  $(itemList[i]).find('input[name="name"]').val();
+               html +=  $(itemList[i]).find('input[name="itemname"]').val()+"：";
+               html +=  price1 ;
+               tax.push(Calculate(price1,$(itemList[i]).find('input[name="price"]').val()));
+               total.push(Math.round(price1 * 100) / 100);
+               html +='</br>'
+
+           }
+
+           html += '销售税：'+sum(tax);
+           html +='</br>'
+           html += '总计：'+sum(total);
+
+           $('#table-list').html(html);
+       })
+
+       var Calculate = function(price1,price) {
+           return price1 - Math.round(price * 100) / 100;
+       }
+       var Calculate2 = function(type,price,name) {
+           var ret = 0;
+           var tax = 0;
+           var p = Math.round(price * 100) / 100;
+
+           if(type == "其他")//所有商品，税率为10%，但书籍、食品和医疗产品除外
+               tax = tax + 0.1;
+
+           if(name.indexOf("进口") != -1)//进口税是对所有进口商品征收的附加销售税，税率为5%，无任何豁免
+           {
+               tax = tax + 0.05;
+
+               ret = keepTwoDecimalFull(p * tax + p);
+               if(ret.substr(-1) > 0 && ret.substr(-1) < 5 )//判断最后一位小数是否大于0小于5
+               {
+                   ret= keepTwoDecimalFull(Math.round(ret * 10) / 10 + 0.05);
+               }
+           }
+           else
+           {
+               ret = keepTwoDecimalFull(p * tax + p);
+           }
+           return ret;
+       }
+
+      var sum = function (arr) {
+             var s = 0;
+             for (var i=arr.length-1; i>=0; i--) {
+               s += arr[i];
+             }
+             return s.toFixed(2);
+      }
+
+    var keepTwoDecimalFull = function (num) {
+                  var result = parseFloat(num);
+                  if (isNaN(result)) {
+                      alert('传递参数错误，请检查！');
+                      return false;
+                  }
+                  result = Math.round(num * 100) / 100;
+                  var s_x = result.toString(); //将数字转换为字符串
+                 var pos_decimal = s_x.indexOf('.'); //小数点的索引值
+                 // 当整数时，pos_decimal=-1 自动补0
+                 if (pos_decimal < 0) {
+                     pos_decimal = s_x.length;
+                     s_x += '.';
+                 }
+                 // 当数字的长度< 小数点索引+2时，补0
+                 while (s_x.length <= pos_decimal + 2) {
+                     s_x += '0';
+                 }
+                 return s_x;
+            }
+</script>
+</html>
